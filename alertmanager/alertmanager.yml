@@ -1,0 +1,52 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'michaelclarkemc01@gmail.com'
+  smtp_auth_username: 'michaelclarkemc01@gmail.com'
+  smtp_auth_password: 'lumhnojnwvbqffju'
+  smtp_require_tls: true
+
+templates:
+  - '/etc/alertmanager/templates/email.tmpl'
+
+route:
+  # 'instance' is in the grouping key because the template prints it. A
+  # CommonLabel only exists if every alert in the group shares it, so without
+  # this a group spanning two hosts renders a blank Instance row.
+  group_by:
+    - alertname
+    - service
+    - server
+    - instance
+
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+
+  receiver: gmail-alerts
+
+  routes:
+    - matchers:
+        - kind = "logs"
+      receiver: gmail-logs
+
+receivers:
+
+  - name: gmail-alerts
+
+    email_configs:
+
+      - to: 'gagan.singh@inextrix.com, michaelclarkemc01@gmail.com'
+        send_resolved: true
+        headers:
+          Subject: '{{ template "email.subject" . }}'
+        html: '{{ template "email.body" . }}'
+
+  - name: gmail-logs
+
+    email_configs:
+
+      - to: 'gagan.singh@inextrix.com, michaelclarkemc01@gmail.com'
+        send_resolved: true
+        headers:
+          Subject: '{{ template "email.logs.subject" . }}'
+        html: '{{ template "email.logs.body" . }}'
