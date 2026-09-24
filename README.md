@@ -19,8 +19,8 @@ The platform combines **Prometheus, Grafana, Alertmanager, Loki, Promtail, expor
                   ┌────────────────────────────────────┐
                   │      Central Monitoring Server     │
                   │                                    │
-                  │  Prometheus     Grafana             │
-                  │  Alertmanager   Loki                │
+                  │  Prometheus     Grafana            │
+                  │  Alertmanager   Loki               │
                   └───────────────┬────────────────────┘
                                   │
                     ┌─────────────┼─────────────┐
@@ -261,9 +261,7 @@ Alertmanager handles notification routing for events such as:
 * Service unavailable
 * FreeSWITCH unavailable
 * Application/service failures
-
-![Alertmanager Alerts](screenshots/alerts.png)
-
+  
 ---
 
 ## 📝 Log Monitoring
