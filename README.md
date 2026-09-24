@@ -246,8 +246,6 @@ centralized-server-voip-monitoring/
 
 The Grafana dashboard provides centralized visibility into server and application health.
 
-![Grafana Dashboard](screenshots/grafana-dashboard.png)
-
 ---
 
 ## 🚨 Alerting
