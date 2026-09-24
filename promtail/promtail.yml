@@ -1,0 +1,158 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://5.161.81.122:3100/loki/api/v1/push
+    # A PBX that loses the link to Loki should keep retrying rather than
+    # dropping the very logs you will want to read afterwards.
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 20
+    batchwait: 1s
+    batchsize: 1048576
+
+scrape_configs:
+
+  - job_name: nginx
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: nginx
+          server: 'VX-Telecom'
+          __path__: /var/log/nginx/error.log
+    pipeline_stages:
+      - regex:
+          expression: '^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} \[(?P<level>\w+)\]'
+      - labels:
+          level:
+      # A line whose level did not parse is KEPT, not dropped -- that is
+      # how continuation lines of a multi-line error survive.
+      - drop:
+          source: level
+          expression: '^(debug|info|notice|warn)$'
+          drop_counter_reason: nginx_below_error
+
+  - job_name: freeswitch
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: freeswitch
+          server: 'VX-Telecom'
+          __path__: /var/log/freeswitch/freeswitch.log
+    pipeline_stages:
+      # FreeSWITCH stack traces span many lines. Without this each line
+      # becomes its own entry and the trace is unreadable in Grafana.
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+'
+          max_wait_time: 3s
+      - regex:
+          expression: '\[(?P<level>DEBUG|INFO|NOTICE|WARNING|ERR|CRIT|ALERT|EMERG)\]'
+      - labels:
+          level:
+      - drop:
+          source: level
+          expression: '^(DEBUG|INFO|NOTICE|WARNING)$'
+          drop_counter_reason: fs_below_error
+
+  - job_name: fail2ban
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: fail2ban
+          server: 'VX-Telecom'
+          __path__: /var/log/fail2ban.log
+    pipeline_stages:
+      - regex:
+          expression: '^\S+ \S+ (?P<component>\S+)\s+\[\d+\]: (?P<level>[A-Z]+)\s+(?P<msg>.*)'
+      - labels:
+          level:
+          component:
+      # NOTICE is kept here by request -- it is the level fail2ban uses to
+      # record an actual ban, which is the line you most want to see.
+      - drop:
+          source: level
+          expression: '^(DEBUG|INFO|WARNING)$'
+          drop_counter_reason: f2b_below_notice
+
+  - job_name: mongodb
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: mongodb
+          server: 'VX-Telecom'
+          __path__: /var/log/mongodb/mongod.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: s
+            component: c
+      - labels:
+          level:
+          component:
+      # mongod severities are single letters: F E W I D.
+      - drop:
+          source: level
+          expression: '^(D|I|W)$'
+          drop_counter_reason: mongo_below_error
+
+  - job_name: monit
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: monit
+          server: 'VX-Telecom'
+          __path__: /var/log/monit.log
+    pipeline_stages:
+      - regex:
+          expression: '^\[[^]]+\]\s+(?P<level>\w+)\s+:'
+      - labels:
+          level:
+      - drop:
+          source: level
+          expression: '^(info|debug|warning)$'
+          drop_counter_reason: monit_below_error
+
+  - job_name: redis
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: redis
+          server: 'VX-Telecom'
+          __path__: /var/log/redis/redis-server.log
+    pipeline_stages:
+      - regex:
+          expression: '^\d+:\w+ \d+ \w+ \d{4} \d{2}:\d{2}:\d{2}\.\d+ (?P<level>[.\-*#])'
+      - labels:
+          level:
+      # Redis has no error level. Its highest is # (warning), which is what
+      # it uses for genuine faults, so # is what survives this filter.
+      - drop:
+          source: level
+          expression: '^[.*-]$'
+          drop_counter_reason: redis_below_warning
+
+  - job_name: syslog
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: syslog
+          server: 'VX-Telecom'
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - regex:
+          expression: '^\w{3}\s+\d+ \d{2}:\d{2}:\d{2} \S+ (?P<program>[^\[:]+)'
+      - labels:
+          program:
+      # syslog carries no severity, so this is a keyword filter on the line.
+      # Anything not matching is dropped, which will occasionally discard a
+      # real problem phrased in words this list does not contain.
+      - match:
+          selector: '{job="syslog"} !~ "(?i)(error|fail|critical|panic|segfault|denied|refused|timed out|cannot|unable)"'
+          action: drop
+          drop_counter_reason: syslog_not_error
