@@ -1,0 +1,143 @@
+# /etc/prometheus/rules/services.yml
+#
+# Up/down alerting for the nine services, each from its own exporter
+# metric.
+#
+# Install:
+#   scp this to the monitoring server as /etc/prometheus/rules/services.yml
+#   promtool check rules /etc/prometheus/rules/services.yml
+#   systemctl reload prometheus
+#
+# CONFIRMED PRESENT on VX-Telecom:
+#   cdr_post_up, fail2ban_up   (port 9101)
+#   nginx_up (9113), freeswitch_up (9282)
+#
+# NOT CONFIRMED -- check these before trusting their rules:
+#   mongodb_up, redis_up, monit_up, claim_agent_up, call_queue_up
+#
+#   for m in mongodb_up redis_up monit_up claim_agent_up call_queue_up; do
+#     printf '%-18s %s\n' "$m" "$(curl -s localhost:9101/metrics | grep -c "^$m")"
+#   done
+#
+# A rule whose metric does not exist never fires and never errors -- it
+# looks installed and reports nothing. So verify the four unconfirmed
+# metrics above rather than assuming those services are being watched.
+
+groups:
+
+  # =====================================================================
+  - name: freeswitch alerts
+    rules:
+      - alert: freeswitch
+        expr: freeswitch_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: freeswitch
+        annotations:
+          summary: "freeswitch service status"
+          description: "If freeswitch service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: mongodb alerts
+    rules:
+      - alert: mongodb
+        expr: mongodb_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: mongodb
+        annotations:
+          summary: "mongodb service status"
+          description: "If mongodb service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: nginx alerts
+    rules:
+      - alert: nginx
+        expr: nginx_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: nginx
+        annotations:
+          summary: "nginx service status"
+          description: "If nginx service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: redis alerts
+    rules:
+      - alert: redis
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "redis service status"
+          description: "If redis service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: fail2ban alerts
+    rules:
+      - alert: fail2ban
+        expr: fail2ban_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: fail2ban
+        annotations:
+          summary: "fail2ban service status"
+          description: "If fail2ban service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: monit alerts
+    rules:
+      - alert: monit
+        expr: monit_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: monit
+        annotations:
+          summary: "monit service status"
+          description: "If monit service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: cdrpost alerts
+    rules:
+      - alert: cdrpost
+        expr: cdr_post_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: cdrpost
+        annotations:
+          summary: "cdrpost service status"
+          description: "If cdrpost service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: claim_agent alerts
+    rules:
+      - alert: claim_agent
+        expr: claim_agent_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: claim_agent
+        annotations:
+          summary: "claim_agent service status"
+          description: "If claim_agent service is up then value is 1 otherwise 0."
+
+  # =====================================================================
+  - name: call_queue alerts
+    rules:
+      - alert: call_queue
+        expr: call_queue_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: call_queue
+        annotations:
+          summary: "call_queue service status"
+          description: "If call_queue service is up then inactive value is 1 otherwise 0."
